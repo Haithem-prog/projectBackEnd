@@ -22,7 +22,6 @@ def myFunction2(request):
 # sort press on Authors
 @myRouters.get("/get_all_authors", response=List[AuthorsSchemaOut])
 def myFunction3(request):
-    print(Author.objects.all())
     return Author.objects.all()
 
 
@@ -59,9 +58,11 @@ def myFunction7(request, user_ids: int, book_ids: int, saveCondition: bool):
             return {"msg": "Book already saved"}
         Saved_Books.objects.create(user_id=user_ids, book_id=book_ids, saved=True)
         return {"msg": "saved successfully"}
-    objectss = Saved_Books.objects.filter(user_id=user_ids, book_id=book_ids)
-    objectss.delete()
-    return {"msg": "unsaved successfully"}
+    if Saved_Books.objects.filter(user_id=user_ids, book_id= book_ids).exists() and not saveCondition:
+        objectss = Saved_Books.objects.filter(user_id=user_ids, book_id=book_ids)
+        objectss.delete()
+        return {"msg": "unsaved successfully"}
+    return {"msg": "Book Not Saved Yet"}
 
 
 #when u press on saved
@@ -70,17 +71,22 @@ def myFunction8(request, user_ids: int):
     return Saved_Books.objects.filter(user_id= user_ids, saved= True)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 # when u press on add to cart button or remove from cart
 @myRouters.post("/add_remove_cart_items")
 def myFunction9(request, desiredBook: ItemsSchemaIn):
-    if(Items.objects.filter(user_id=desiredBook.user_id,book_id=desiredBook.book_id,inCart=True).exists() and desiredBook.removeFromCart == False):
-        objects = Items.objects.get(user_id=desiredBook.user_id,book_id=desiredBook.book_id,inCart=True)
-        objects.qty = objects.qty + desiredBook.qty
-        objects.inCart = True
-        objects.save()
-        return {"msg": "Book Qty Increased Successfully",}
-
-    elif(not(Items.objects.filter(user_id=desiredBook.user_id,book_id=desiredBook.book_id,qty=desiredBook.qty,inCart=True).exists()) and  desiredBook.removeFromCart == False):
+    if (not(Items.objects.filter(user_id=desiredBook.user_id,book_id=desiredBook.book_id).exists())and  desiredBook.removeFromCart == False):
         Items.objects.create(
             user_id=desiredBook.user_id,
             book_id=desiredBook.book_id,
@@ -89,13 +95,31 @@ def myFunction9(request, desiredBook: ItemsSchemaIn):
         )
         return {"msg": "Book Added Successfully",}
 
-    objectss = Items.objects.filter(user_id = desiredBook.user_id, book_id = desiredBook.book_id, qty = desiredBook.qty)
-    objectss.delete()
-    return {"msg": "Book Removed Successfully",}
+    elif (Items.objects.filter(user_id=desiredBook.user_id,book_id=desiredBook.book_id, inCart = False).exists() and desiredBook.removeFromCart == False):
+        objects = Items.objects.get(user_id=desiredBook.user_id,book_id=desiredBook.book_id,inCart=False,)
+        objects.qty = 0
+        objects.save()
+        objects.qty += desiredBook.qty
+        objects.inCart = True
+        objects.save()
+        return {"msg": "You Already Checked This Book But Its Added Anyway!",}
+
+    elif (Items.objects.filter(user_id=desiredBook.user_id,book_id=desiredBook.book_id, inCart = True).exists() and desiredBook.removeFromCart == False):
+        objects = Items.objects.get(user_id=desiredBook.user_id,book_id=desiredBook.book_id,inCart=True)
+        objects.qty += desiredBook.qty
+        objects.save()
+        return {"msg": "Qty Increased Successfully",}
+
+    elif(Items.objects.filter(user_id=desiredBook.user_id,book_id=desiredBook.book_id,inCart=True).exists()):
+        objectss = Items.objects.get(user_id = desiredBook.user_id, book_id = desiredBook.book_id)
+        objectss.inCart = False
+        #objectss.isBought = True
+        objectss.save()
+        return {"msg": "Book Removed Successfully",}
 
 
 # when u press on the cart button
-@myRouters.get("/get_personal_cart/{user_ids}", response={200:List[ItemsSchemaOut], 201: ErrorMesssage})
+@myRouters.get("/get_personal_cart_items/{user_ids}", response={200:List[ItemsSchemaOut], 201: ErrorMesssage})
 def myFunction10(request, user_ids: int):
     if data:= Items.objects.filter(user_id=user_ids, inCart=True):
         return data
@@ -123,15 +147,17 @@ def myFunction13(request, user_ids: int):
     booksInCart = Items.objects.filter(user_id=user_ids, inCart=True)
     if data := list(booksInCart.values()):
         try:
-            for i in range(len(data)):
-                qty = data[i]['qty']
-                objects = Book.objects.get(id=data[i]['book_id'])
-                objects.total_sales += qty
-                objects.save()
-                objects = booksInCart[i]
-                objects.inCart = False
-                objects.isBought = True
-                objects.save()
+            for datum in data:
+                qty = datum['qty']
+                bookObjects = Book.objects.get(id=datum['book_id'])
+                bookObjects.total_sales += qty
+                bookObjects.save()
+                itemObjects = booksInCart[0]
+                print(booksInCart)
+                itemObjects.qty = 0
+                itemObjects.inCart = False
+                itemObjects.isBought = True
+                itemObjects.save()
             return {"msg": "Items Bought successfully"}
         except Exception:
             return {"msg": "Try Again Please"}
@@ -139,12 +165,26 @@ def myFunction13(request, user_ids: int):
 
 
 # when u press on your profile
-@myRouters.get("/get_all_purchased_books/{user_ids}", response=List[ItemsSchemaOut])
+@myRouters.get("/get_all_purchased_books/{user_ids}", response={200:List[ItemsSchemaOut], 201: ErrorMesssage})
 def myFunction14(request, user_ids: int):
     try:
         return Items.objects.filter(user_id=user_ids, isBought=True)
     except Exception:
-        return{"msg": "No Purchased Books"}
+        return 201, {"detail": "No Purchased Books"}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Top sales
