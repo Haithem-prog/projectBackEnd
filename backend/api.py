@@ -73,16 +73,6 @@ def myFunction8(request, user_ids: int):
 
 
 
-
-
-
-
-
-
-
-
-
-
 # when u press on add to cart button or remove from cart
 @myRouters.post("/add_remove_cart_items")
 def myFunction9(request, desiredBook: ItemsSchemaIn):
